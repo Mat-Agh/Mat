@@ -1,0 +1,8 @@
+<resources>
+    <!--    region common-->
+    <string name="app_name">Mat</string>
+    <!--    endregion common-->
+
+    <string name="search_field_empty">Search…</string>
+    <string name="value_field_industry">Crypto: %s</string>
+</resources>
