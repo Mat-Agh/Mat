@@ -48,6 +48,7 @@ fun CoinListScreen(
 
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             itemsIndexed(state.coins) { index, coin ->
+                viewModel.state.isLoading
                 if (index > 0) {
                     CoinListItemScreen(
                         coinModel = coin,

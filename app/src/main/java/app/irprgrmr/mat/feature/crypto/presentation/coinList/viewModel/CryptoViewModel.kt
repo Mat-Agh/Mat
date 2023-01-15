@@ -41,10 +41,14 @@ class CryptoViewModel @Inject constructor(
             is CoinListScreenEvent.OnSearchQueryChange -> {
                 state = state.copy(searchQuery = event.query)
 
-                searchJob?.cancel()
-                searchJob = viewModelScope.launch {
-                    delay(1000L)
-                    getCoinList()
+                if (!state.isLoading && searchJob?.isActive == false) {
+                    searchJob?.cancel()
+                    searchJob = viewModelScope.launch {
+                        delay(1000L)
+                        getCoinList()
+                    }
+                } else if (state.isLoading && searchJob?.isActive == true) {
+                    searchJob?.cancel()
                 }
             }
         }
@@ -56,6 +60,8 @@ class CryptoViewModel @Inject constructor(
         query: String = state.searchQuery.lowercase(),
         fetchFromRemote: Boolean = true
     ) {
+        if (state.isLoading) return
+
         viewModelScope.launch {
             repository.getCoins(fetchFromRemote, query)
                 .collect { result ->
@@ -65,7 +71,9 @@ class CryptoViewModel @Inject constructor(
                                 state = state.copy(coins = coins)
                             }
                         }
-                        is Resource.Error -> Unit
+                        is Resource.Error -> {
+                            state = state.copy(isLoading = false)
+                        }
                         is Resource.Loading -> {
                             state = state.copy(isLoading = result.isLoading)
                         }
