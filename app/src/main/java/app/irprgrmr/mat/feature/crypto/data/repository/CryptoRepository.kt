@@ -84,6 +84,7 @@ class CryptoRepository @Inject constructor(
     }
     //endregion
 
+    //region Private Functions
     private suspend fun getCoinModelList(): List<CoinModel> {
         var coins = emptyList<CoinModel>()
 
@@ -98,7 +99,6 @@ class CryptoRepository @Inject constructor(
         return coins
     }
 
-    //region Private Functions
     private suspend fun saveToLocal(coins: List<CoinDto>?) {
         coroutineScope {
             launch(Dispatchers.IO) {
