@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
-import retrofit2.awaitResponse
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -42,7 +41,7 @@ class CryptoRepository @Inject constructor(
         withContext(Dispatchers.IO) {
             if (fetchFromRemote) {
                 val cryptoData: CryptoDto? = try {
-                    val response = api.getCryptoData(query).awaitResponse()
+                    val response = api.getCryptoData(query)
                     if (response.isSuccessful) response.body()
                     else {
                         emit(Resource.Error(response.message()))
