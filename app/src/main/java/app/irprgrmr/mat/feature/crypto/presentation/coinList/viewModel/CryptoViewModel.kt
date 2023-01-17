@@ -10,9 +10,7 @@ import app.irprgrmr.mat.feature.crypto.domain.repository.CoinRepositoryInterface
 import app.irprgrmr.mat.feature.crypto.presentation.coinList.event.CoinListScreenEvent
 import app.irprgrmr.mat.feature.crypto.presentation.coinList.state.CoinListScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import javax.inject.Inject
 
 @HiltViewModel
@@ -26,29 +24,33 @@ class CryptoViewModel @Inject constructor(
 
     //region initialization
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             getCoinList()
         }
     }
     //endregion
 
     //region Events
-    fun onEvent(event: CoinListScreenEvent) {
-        when (event) {
-            is CoinListScreenEvent.Refresh -> {
-                getCoinList(fetchFromRemote = true)
-            }
-            is CoinListScreenEvent.OnSearchQueryChange -> {
-                state = state.copy(searchQuery = event.query)
-
-                if (!state.isLoading && searchJob?.isActive == false) {
-                    searchJob?.cancel()
-                    searchJob = viewModelScope.launch {
-                        delay(1000L)
-                        getCoinList()
+    suspend fun onEvent(event: CoinListScreenEvent) {
+        coroutineScope {
+            launch(Dispatchers.IO) {
+                when (event) {
+                    is CoinListScreenEvent.Refresh -> {
+                        getCoinList(fetchFromRemote = true)
                     }
-                } else if (state.isLoading && searchJob?.isActive == true) {
-                    searchJob?.cancel()
+                    is CoinListScreenEvent.OnSearchQueryChange -> {
+                        state = state.copy(searchQuery = event.query)
+
+                        if (!state.isLoading && searchJob?.isActive == false) {
+                            searchJob?.cancel()
+                            searchJob = viewModelScope.launch {
+                                delay(1000L)
+                                getCoinList()
+                            }
+                        } else if (state.isLoading && searchJob?.isActive == true) {
+                            searchJob?.cancel()
+                        }
+                    }
                 }
             }
         }
@@ -56,29 +58,27 @@ class CryptoViewModel @Inject constructor(
     //endregion
 
     //region Logic
-    private fun getCoinList(
-        query: String = state.searchQuery.lowercase(),
-        fetchFromRemote: Boolean = true
+    private suspend fun getCoinList(
+        query: String = state.searchQuery.lowercase(), fetchFromRemote: Boolean = true
     ) {
         if (state.isLoading) return
 
-        viewModelScope.launch {
-            repository.getCoins(fetchFromRemote, query)
-                .collect { result ->
-                    when (result) {
-                        is Resource.Success -> {
-                            result.data?.let { coins ->
-                                state = state.copy(coins = coins)
-                            }
-                        }
-                        is Resource.Error -> {
-                            state = state.copy(isLoading = false)
-                        }
-                        is Resource.Loading -> {
-                            state = state.copy(isLoading = result.isLoading)
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.getCoins(fetchFromRemote, query).collect { result ->
+                when (result) {
+                    is Resource.Success -> {
+                        result.data?.let { coins ->
+                            state = state.copy(coins = coins)
                         }
                     }
+                    is Resource.Error -> {
+                        state = state.copy(isLoading = false)
+                    }
+                    is Resource.Loading -> {
+                        state = state.copy(isLoading = result.isLoading)
+                    }
                 }
+            }
         }
     }
     //endregion

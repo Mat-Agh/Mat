@@ -2,25 +2,29 @@ package app.irprgrmr.mat.feature.crypto.data.repository
 
 import app.irprgrmr.mat.common.Resource
 import app.irprgrmr.mat.common.constants.ExceptionMessage
-import app.irprgrmr.mat.common.getEmpty
 import app.irprgrmr.mat.feature.crypto.data.local.database.CoinDatabase
 import app.irprgrmr.mat.feature.crypto.data.mapper.toCoinEntity
 import app.irprgrmr.mat.feature.crypto.data.mapper.toCoinModel
 import app.irprgrmr.mat.feature.crypto.data.remote.ServiceApi
 import app.irprgrmr.mat.feature.crypto.data.remote.dto.CoinDto
+import app.irprgrmr.mat.feature.crypto.data.remote.dto.CryptoDto
 import app.irprgrmr.mat.feature.crypto.domain.model.CoinModel
 import app.irprgrmr.mat.feature.crypto.domain.repository.CoinRepositoryInterface
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.HttpException
+import retrofit2.awaitResponse
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class CryptoRepository @Inject constructor(
-    private val api: ServiceApi,
-    private val db: CoinDatabase
+    private val api: ServiceApi, private val db: CoinDatabase
 ) : CoinRepositoryInterface {
     //region Variables
     private val coinDao = db.coinDao
@@ -28,56 +32,80 @@ class CryptoRepository @Inject constructor(
 
     //region Override Methods
     override suspend fun getCoins(
-        fetchFromRemote: Boolean,
-        query: String?
+        fetchFromRemote: Boolean, query: String?
     ): Flow<Resource<List<CoinModel>>> = flow {
-        if (fetchFromRemote) {
+        withContext(Dispatchers.Main) {
             emit(Resource.Loading(isLoading = true))
+        }
 
-            val cryptoData = try {
-                api.getCryptoData(if (query.isNullOrEmpty()) String.getEmpty() else query)
-            } catch (e: IOException) {
-                emit(Resource.Error(ExceptionMessage.IO_EXCEPTION_MESSAGE))
-                null
-            } catch (e: HttpException) {
-                emit(Resource.Error(ExceptionMessage.HTTP_EXCEPTION_MESSAGE))
-                null
+        withContext(Dispatchers.IO) {
+            if (fetchFromRemote) {
+                val cryptoData: CryptoDto? = try {
+                    val response = api.getCryptoData(query).awaitResponse()
+                    if (response.isSuccessful) response.body()
+                    else {
+                        emit(Resource.Error(response.message()))
+                        null
+                    }
+                } catch (e: IOException) {
+                    emit(Resource.Error(ExceptionMessage.IO_EXCEPTION_MESSAGE))
+                    null
+                } catch (e: HttpException) {
+                    emit(Resource.Error(ExceptionMessage.HTTP_EXCEPTION_MESSAGE))
+                    null
+                }
+
+                cryptoData?.let { saveToLocal(it.coins) }
+
+                withContext(Dispatchers.Main) {
+                    emit(
+                        Resource.Success(
+                            data = getCoinModelList()
+                        )
+                    )
+
+                    emit(
+                        Resource.Loading(false)
+                    )
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    emit(
+                        Resource.Success(
+                            data = getCoinModelList()
+                        )
+                    )
+
+                    emit(Resource.Loading(isLoading = false))
+                }
             }
-
-            cryptoData?.let { saveToLocal(it.coins) }
-
-            emit(
-                Resource.Success(
-                    data = getCoinModelList()
-                )
-            )
-
-            emit(
-                Resource.Loading(false)
-            )
-        } else {
-            emit(Resource.Loading(isLoading = true))
-
-            emit(
-                Resource.Success(
-                    data = getCoinModelList()
-                )
-            )
         }
     }
     //endregion
 
-    private suspend fun getCoinModelList(): List<CoinModel> = coinDao
-        .getCoins()
-        .map {
-            it.toCoinModel()
+    private suspend fun getCoinModelList(): List<CoinModel> {
+        var coins = emptyList<CoinModel>()
+
+        coroutineScope {
+            launch(Dispatchers.IO) {
+                coins = coinDao.getCoins().map {
+                    it.toCoinModel()
+                }
+            }
         }
+
+        return coins
+    }
 
     //region Private Functions
     private suspend fun saveToLocal(coins: List<CoinDto>?) {
-        coins?.let { coinList ->
-            coinDao.clearCoins()
-            coinDao.insertCoins(coinList.map { it.toCoinEntity() })
+        coroutineScope {
+            launch(Dispatchers.IO) {
+                coins?.let { coinList ->
+                    coinDao.clearCoins()
+                    coinDao.insertCoins(coinList.map { it.toCoinEntity() })
+                }
+            }
         }
     }
 }
