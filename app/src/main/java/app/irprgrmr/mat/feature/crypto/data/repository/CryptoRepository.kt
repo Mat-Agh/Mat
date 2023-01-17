@@ -24,7 +24,8 @@ import javax.inject.Singleton
 
 @Singleton
 class CryptoRepository @Inject constructor(
-    private val api: ServiceApi, private val db: CoinDatabase
+    private val api: ServiceApi,
+    db: CoinDatabase
 ) : CoinRepositoryInterface {
     //region Variables
     private val coinDao = db.coinDao
