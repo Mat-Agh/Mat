@@ -5,7 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
-import app.irprgrmr.mat.feature.coroutine.presentation.coroutine.CoroutineScreen
+import app.irprgrmr.mat.feature.coroutine.presentation.coroutine.screen.CoroutineScreen
 import app.irprgrmr.mat.ui.theme.AppTheme
 import dagger.hilt.android.AndroidEntryPoint
 

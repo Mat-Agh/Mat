@@ -1,4 +1,4 @@
-package app.irprgrmr.mat.feature.coroutine.presentation.coroutine
+package app.irprgrmr.mat.feature.coroutine.presentation.coroutine.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
