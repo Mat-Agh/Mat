@@ -15,7 +15,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
@@ -32,80 +31,90 @@ class CryptoRepository @Inject constructor(
 
     //region Override Methods
     override suspend fun getCoins(
-        fetchFromRemote: Boolean, query: String?
+        fetchFromRemote: Boolean,
+        query: String?
     ): Flow<Resource<List<CoinModel>>> = flow {
-        withContext(Dispatchers.Main) {
-            emit(Resource.Loading(isLoading = true))
-        }
+        emit(Resource.Loading(isLoading = true))
 
-        withContext(Dispatchers.IO) {
-            if (fetchFromRemote) {
-                val cryptoData: CryptoDto? = try {
-                    val response = api.getCryptoData(query)
-                    if (response.isSuccessful) response.body()
-                    else {
-                        emit(Resource.Error(response.message()))
-                        null
-                    }
-                } catch (e: IOException) {
-                    emit(Resource.Error(ExceptionMessage.IO_EXCEPTION_MESSAGE))
-                    null
-                } catch (e: HttpException) {
-                    emit(Resource.Error(ExceptionMessage.HTTP_EXCEPTION_MESSAGE))
+        var coinsFromLocal = listOf<CoinModel>()
+
+        if (fetchFromRemote) {
+            val cryptoData: CryptoDto? = try {
+                val response = api.getCryptoData(query)
+                if (response.isSuccessful) response.body()
+                else {
+                    emit(Resource.Error(response.message()))
                     null
                 }
+            } catch (e: IOException) {
+                emit(Resource.Error(ExceptionMessage.IO_EXCEPTION_MESSAGE))
+                null
+            } catch (e: HttpException) {
+                emit(Resource.Error(ExceptionMessage.HTTP_EXCEPTION_MESSAGE))
+                null
+            }
 
-                cryptoData?.let { saveToLocal(it.coins) }
-
-                withContext(Dispatchers.Main) {
-                    emit(
-                        Resource.Success(
-                            data = getCoinModelList()
-                        )
-                    )
-
-                    emit(
-                        Resource.Loading(false)
-                    )
-                }
-            } else {
-                withContext(Dispatchers.Main) {
-                    emit(
-                        Resource.Success(
-                            data = getCoinModelList()
-                        )
-                    )
-
-                    emit(Resource.Loading(isLoading = false))
+            val saveJob = coroutineScope {
+                launch(Dispatchers.IO) {
+                    cryptoData?.let { saveToLocal(it.coins) }
                 }
             }
+
+            saveJob.join()
+
+
+            val readJob = coroutineScope {
+                launch(Dispatchers.IO) {
+                    coinsFromLocal = getCoinModelList()
+                }
+            }
+
+            readJob.join()
+
+            emit(
+                Resource.Success(
+                    data = coinsFromLocal
+                )
+            )
+
+            emit(
+                Resource.Loading(false)
+            )
+        } else {
+            val readJob = coroutineScope {
+                launch(Dispatchers.IO) {
+                    coinsFromLocal = getCoinModelList()
+                }
+            }
+
+            readJob.join()
+
+            emit(
+                Resource.Success(
+                    data = coinsFromLocal
+                )
+            )
+
+            emit(Resource.Loading(isLoading = false))
         }
     }
     //endregion
 
     //region Private Functions
     private suspend fun getCoinModelList(): List<CoinModel> {
-        var coins = emptyList<CoinModel>()
 
-        coroutineScope {
-            launch(Dispatchers.IO) {
-                coins = coinDao.getCoins().map {
+        val coins: List<CoinModel> = coinDao.getCoins()
+                .map {
                     it.toCoinModel()
                 }
-            }
-        }
 
         return coins
     }
 
     private suspend fun saveToLocal(coins: List<CoinDto>?) {
-        coroutineScope {
-            launch(Dispatchers.IO) {
-                coins?.let { coinList ->
-                    coinDao.clearCoins()
-                    coinDao.insertCoins(coinList.map { it.toCoinEntity() })
-                }
-            }
+        coins?.let { coinList ->
+            coinDao.clearCoins()
+            coinDao.insertCoins(coinList.map { it.toCoinEntity() })
         }
     }
 }
