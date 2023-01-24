@@ -40,7 +40,7 @@ class CoinListViewHolder(
                 )
 
                 placeholder(
-                    R.drawable.rounded_corner_rectangle
+                    R.drawable.circle_image_view_place_holder
                 )
             }
 

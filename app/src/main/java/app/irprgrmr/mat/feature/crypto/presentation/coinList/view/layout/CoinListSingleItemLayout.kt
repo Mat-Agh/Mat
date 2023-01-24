@@ -190,7 +190,7 @@ fun getTextView(
         setLayoutParams(layoutParams)
         textSize = TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_SP,
-            10f,
+            8f,
             context.resources.displayMetrics
         )
         setTextColor(Color.WHITE)

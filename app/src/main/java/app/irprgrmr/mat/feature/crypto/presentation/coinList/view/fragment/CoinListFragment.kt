@@ -17,52 +17,57 @@ import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class CoinListFragment : Fragment() {
-    //region Variables
-    private val viewModel by viewModels<CryptoViewModel>()
-    private var layout: View? = null
-    private var adapter: CoinListAdapter = CoinListAdapter()
-    //endregion Variables
+	//region Variables
+	private val viewModel by viewModels<CryptoViewModel>()
+	private var layout: View? = null
+	private var adapter: CoinListAdapter = CoinListAdapter()
+	//endregion Variables
 
-    //region Companion
-    companion object {
-        fun newInstance(): CoinListFragment = CoinListFragment()
-    }
-    //endregion
+	//region Companion
+	companion object {
+		fun newInstance(): CoinListFragment = CoinListFragment()
+	}
+	//endregion
 
-    //region Override Methods
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        layout = getCoinListFragmentLayout(
-            context = context,
-            adapter = adapter,
-            viewModel = viewModel
-        )
+	//region Override Methods
+	override fun onCreateView(
+		inflater: LayoutInflater,
+		container: ViewGroup?,
+		savedInstanceState: Bundle?
+	): View? {
+		layout = getCoinListFragmentLayout(
+			context = context,
+			adapter = adapter,
+			viewModel = viewModel,
+			lifecycleScope = lifecycleScope
+		)
 
-        return layout
-    }
+		return layout
+	}
 
-    override fun onViewCreated(
-        view: View,
-        savedInstanceState: Bundle?
-    ) {
-        super.onViewCreated(
-            view,
-            savedInstanceState
-        )
+	override fun onViewCreated(
+		view: View,
+		savedInstanceState: Bundle?
+	) {
+		super.onViewCreated(
+			view,
+			savedInstanceState
+		)
 
-        lifecycleScope.launch(Dispatchers.IO) {
-            viewModel.state.flowWithLifecycle(lifecycle = lifecycle)
-                    .collect {
-                        adapter.submitData(it.coins)
-                    }
-        }
-    }
-    //endregion Override Methods
+		lifecycleScope.launch(Dispatchers.IO) {
+			viewModel.state.flowWithLifecycle(
+				lifecycle = lifecycle
+			)
+				.collect {
+					if (!it.isLoading) {
+						adapter.submitData(it.coins)
+					}
+				}
+		}
+	}
+	//endregion Override Methods
 
-    //region Private Methods
+	//region Private Methods
 
-    //endregion Private Methods
+	//endregion Private Methods
 }
